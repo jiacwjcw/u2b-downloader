@@ -15,13 +15,13 @@ from PyQt5.QtWidgets import (
     QProgressBar,
     QPushButton,
 )
-from pytubefix import YouTube  # 使用 pytubefix 替代 pytube
+from pytubefix import YouTube
 
 
 class DownloadThread(QThread):
-    progress = pyqtSignal(int)  # 發送進度更新信號
-    finished = pyqtSignal(str)  # 發送下載完成信號
-    error = pyqtSignal(str)  # 發送錯誤信號
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
 
     def __init__(self, url, resolution, folder):
         super().__init__()
@@ -30,7 +30,6 @@ class DownloadThread(QThread):
         self.folder = folder
 
     def sanitize_filename(self, filename):
-        """清理檔案名稱，移除不合法的字元"""
         return re.sub(r'[\/:*?"<>|]', "_", filename)
 
     def progress_function(self, stream, chunk, bytes_remaining):
@@ -56,7 +55,6 @@ class DownloadThread(QThread):
                 audio_path = os.path.join(self.folder, f"{sanitized_title}_audio.mp4")
                 output_path = os.path.join(self.folder, f"{sanitized_title}.mp4")
 
-                # 下載影片和音訊
                 video_stream.download(
                     output_path=self.folder, filename=f"{sanitized_title}_video.mp4"
                 )
@@ -64,14 +62,11 @@ class DownloadThread(QThread):
                     output_path=self.folder, filename=f"{sanitized_title}_audio.mp4"
                 )
 
-                # 合併影片和音訊
                 self.merge_video_audio(video_path, audio_path, output_path)
 
-                # 刪除臨時檔案
                 os.remove(video_path)
                 os.remove(audio_path)
 
-                # 發送完成信號
                 self.finished.emit(output_path)
             else:
                 self.error.emit("無法找到對應的解析度或音訊！")
@@ -96,7 +91,6 @@ class DownloadThread(QThread):
                 output_path,
             ]
 
-            # 啟動 subprocess 並捕獲標準輸出
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -104,11 +98,9 @@ class DownloadThread(QThread):
                 universal_newlines=True,
             )
 
-            # 解析 ffmpeg 的輸出進度
             duration = None
             for line in process.stdout:
                 if "Duration" in line:
-                    # 抓取影片的總時長 (格式: hh:mm:ss.xx)
                     duration_match = re.search(
                         r"Duration: (\d+):(\d+):(\d+).(\d+)", line
                     )
@@ -119,7 +111,6 @@ class DownloadThread(QThread):
                         duration = hours * 3600 + minutes * 60 + seconds
 
                 if "time=" in line and duration:
-                    # 抓取目前處理的時間點 (格式: hh:mm:ss.xx)
                     time_match = re.search(r"time=(\d+):(\d+):(\d+).(\d+)", line)
                     if time_match:
                         hours = int(time_match.group(1))
@@ -127,11 +118,9 @@ class DownloadThread(QThread):
                         seconds = int(time_match.group(3))
                         current_time = hours * 3600 + minutes * 60 + seconds
 
-                        # 計算進度百分比
                         progress = int((current_time / duration) * 100)
                         self.progress.emit(progress)
 
-            # 等待進程結束
             process.wait()
             if process.returncode != 0:
                 raise Exception("ffmpeg 合併失敗")
@@ -217,7 +206,6 @@ class YouTubeDownloader(QMainWindow):
             QMessageBox.warning(self, "警告", "請填寫所有欄位！")
             return
 
-        # 啟動下載執行緒
         self.download_thread = DownloadThread(url, resolution, folder)
         self.download_thread.progress.connect(self.update_progress)
         self.download_thread.finished.connect(self.download_finished)
